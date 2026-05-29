@@ -1,487 +1,1049 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>HAIL MARY — Stellar Navigation</title>
-  <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap" rel="stylesheet">
-  <style>
-    * { margin:0; padding:0; box-sizing:border-box; }
-    body { background:#00010a; color:#7af; font-family:'Share Tech Mono',monospace; overflow:hidden; }
-    #c { position:fixed; inset:0; width:100%; height:100%; }
-    #scanlines {
-      position:fixed; inset:0; pointer-events:none; z-index:10;
-      background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,.13) 2px,rgba(0,0,0,.13) 4px);
-    }
-    #vignette {
-      position:fixed; inset:0; pointer-events:none; z-index:9;
-      background:radial-gradient(ellipse at center,transparent 55%,rgba(0,0,20,.75) 100%);
-    }
-    #hud { position:fixed; inset:0; pointer-events:none; z-index:20; }
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HAIL MARY · STELLAR NAVIGATION CHART</title>
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
 
-    .title {
-      position:absolute; top:18px; left:50%; transform:translateX(-50%);
-      font-size:1.3em; letter-spacing:.45em; color:#8cf;
-      text-shadow:0 0 18px #4af,0 0 40px #28f;
-      border-bottom:1px solid rgba(100,200,255,.25); padding-bottom:7px;
-      white-space:nowrap;
-    }
-    .tabs {
-      position:absolute; top:18px; right:20px;
-      display:flex; gap:10px;
-    }
-    .tab {
-      font-size:.6em; letter-spacing:.2em; padding:4px 10px;
-      border:1px solid rgba(100,200,255,.25); color:rgba(100,200,255,.4);
-    }
-    .tab.active {
-      color:#8cf; border-color:rgba(100,200,255,.7);
-      background:rgba(100,200,255,.08); text-shadow:0 0 8px #4af;
-    }
+body {
+  background: #000008;
+  overflow: hidden;
+  font-family: 'Share Tech Mono', 'Courier New', monospace;
+  color: #ccc;
+  user-select: none;
+}
 
-    #dest-panel {
-      position:absolute; top:18px; left:20px;
-      font-size:.68em; border:1px solid rgba(255,100,70,.3);
-      padding:10px 16px; background:rgba(20,0,0,.75);
-      color:rgba(255,100,70,.8);
-    }
-    .dest-title { letter-spacing:.25em; margin-bottom:5px; font-size:.9em; }
-    .dest-name { color:#f87; font-size:1.5em; text-shadow:0 0 12px #f42; }
-    .dest-sub { margin-top:5px; color:rgba(255,100,70,.55); font-size:.9em; }
+#canvas-container {
+  position: fixed;
+  inset: 0;
+}
 
-    #info-panel {
-      position:absolute; bottom:44px; left:20px;
-      font-size:.68em; line-height:1.8;
-      border:1px solid rgba(100,200,255,.2);
-      padding:12px 18px; background:rgba(0,5,20,.8); min-width:210px;
-    }
-    .lbl { color:rgba(100,200,255,.45); letter-spacing:.12em; font-size:.88em; }
-    .val { color:#cef; }
-    #star-name { color:#8cf; font-size:1.35em; text-shadow:0 0 10px #4af; }
+/* ── Star labels (CSS2D) ── */
+.star-label {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 0.13em;
+  color: #b0c8d8;
+  text-transform: uppercase;
+  white-space: nowrap;
+  pointer-events: none;
+  padding-left: 10px;
+  text-shadow: 0 0 8px rgba(120,180,255,0.6);
+}
+.star-label.is-destination {
+  color: #ff6060;
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  text-shadow: 0 0 12px rgba(255,60,60,0.9);
+}
+.star-label.is-origin {
+  color: #ffffff;
+  font-size: 13px;
+  letter-spacing: 0.2em;
+  text-shadow: 0 0 14px rgba(255,255,255,1);
+}
+.star-label.is-selected {
+  color: #ffffff;
+  text-shadow: 0 0 12px rgba(180,220,255,1);
+}
+.ship-label {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 9px;
+  letter-spacing: 0.2em;
+  color: #ff6060;
+  text-transform: uppercase;
+  pointer-events: none;
+  padding-left: 8px;
+  text-shadow: 0 0 10px rgba(255,60,60,1);
+}
 
-    #nav-buttons {
-      position:absolute; bottom:44px; right:20px;
-      display:flex; flex-direction:column; gap:8px; pointer-events:all;
-    }
-    .nav-btn {
-      font-family:'Share Tech Mono',monospace;
-      font-size:.62em; letter-spacing:.22em; padding:7px 16px; cursor:pointer;
-      border:1px solid rgba(100,200,255,.35); background:rgba(0,5,20,.85);
-      color:#8cf; transition:all .18s;
-    }
-    .nav-btn:hover {
-      background:rgba(100,200,255,.13); text-shadow:0 0 8px #4af; border-color:#6af;
-    }
+/* ── UI Overlay ── */
+#ui {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 100;
+}
 
-    .gaia-label {
-      position:absolute; bottom:12px; left:50%; transform:translateX(-50%);
-      font-size:.52em; letter-spacing:.35em; color:rgba(100,200,255,.3);
-      white-space:nowrap;
-    }
+/* Top-left title */
+#title-block {
+  position: absolute;
+  top: 22px;
+  left: 22px;
+  pointer-events: auto;
+}
+#title-main {
+  font-size: 34px;
+  letter-spacing: 0.3em;
+  color: #fff;
+  line-height: 1;
+}
+#title-sub {
+  font-size: 10px;
+  letter-spacing: 0.22em;
+  color: #7a9ab0;
+  margin-top: 7px;
+  text-transform: uppercase;
+}
+#title-data {
+  font-size: 8px;
+  letter-spacing: 0.15em;
+  color: #506070;
+  margin-top: 3px;
+  text-transform: uppercase;
+}
+#about-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 14px;
+  padding: 5px 11px;
+  border: 1px solid #3a5060;
+  background: transparent;
+  color: #607888;
+  font-family: inherit;
+  font-size: 8px;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: all .2s;
+}
+#about-btn:hover { border-color: #8aaabb; color: #b0ccdd; }
 
-    /* Corner brackets */
-    .corner { position:absolute; width:24px; height:24px; }
-    .corner.tl { top:8px; left:8px; border-top:1px solid rgba(100,200,255,.35); border-left:1px solid rgba(100,200,255,.35); }
-    .corner.tr { top:8px; right:8px; border-top:1px solid rgba(100,200,255,.35); border-right:1px solid rgba(100,200,255,.35); }
-    .corner.bl { bottom:8px; left:8px; border-bottom:1px solid rgba(100,200,255,.35); border-left:1px solid rgba(100,200,255,.35); }
-    .corner.br { bottom:8px; right:8px; border-bottom:1px solid rgba(100,200,255,.35); border-right:1px solid rgba(100,200,255,.35); }
+/* Top-center tabs */
+#top-tabs {
+  position: absolute;
+  top: 22px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 3px;
+  pointer-events: auto;
+}
+.tab-btn {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 9px 20px;
+  font-family: inherit;
+  font-size: 9px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  cursor: pointer;
+  background: rgba(0,4,12,0.75);
+  border: 1px solid #253545;
+  color: #607888;
+  transition: all .2s;
+}
+.tab-btn.active {
+  background: rgba(10,25,45,0.95);
+  border-color: #7a9ab0;
+  color: #ddeeff;
+}
+.tab-btn:hover:not(.active) { border-color: #4a6070; color: #90aabc; }
+.tab-dot {
+  width: 5px; height: 5px;
+  border-radius: 50%;
+  border: 1px solid #4a6070;
+  background: transparent;
+  flex-shrink: 0;
+}
+.tab-btn.active .tab-dot { background: #aaccdd; border-color: #aaccdd; }
 
-    /* CSS2D labels */
-    .star-label {
-      font-family:'Share Tech Mono',monospace; font-size:10px;
-      color:rgba(160,210,255,.7); letter-spacing:.1em; white-space:nowrap;
-      pointer-events:none; padding-left:7px;
-      text-shadow:0 0 5px rgba(80,160,255,.4);
-    }
-    .star-label.origin { color:rgba(255,220,100,.9); text-shadow:0 0 8px rgba(255,190,50,.55); }
-    .star-label.dest   { color:rgba(255,110,80,.9);  text-shadow:0 0 8px rgba(255,70,30,.55); }
-  </style>
-  <script type="importmap">
-  {
-    "imports": {
-      "three": "https://cdn.jsdelivr.net/npm/three@0.168.0/build/three.module.js",
-      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.168.0/examples/jsm/"
-    }
-  }
-  </script>
+/* Top-right info */
+#info-panel {
+  position: absolute;
+  top: 22px;
+  right: 22px;
+  text-align: right;
+  pointer-events: none;
+}
+.info-row {
+  display: flex;
+  justify-content: flex-end;
+  align-items: baseline;
+  gap: 12px;
+  margin-bottom: 5px;
+}
+.info-lbl {
+  font-size: 7px;
+  letter-spacing: 0.18em;
+  color: #506878;
+  text-transform: uppercase;
+}
+.info-val {
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  color: #8aaabb;
+}
+.info-val.bright { color: #ccdde8; }
+.info-val.dest {
+  color: #ff6060;
+  text-shadow: 0 0 10px rgba(255,60,60,0.8);
+}
+
+/* Selected star HUD */
+#selected-hud {
+  position: absolute;
+  top: 22px;
+  right: 220px;
+  text-align: right;
+  display: none;
+  pointer-events: none;
+}
+#sel-name {
+  font-size: 12px;
+  letter-spacing: 0.22em;
+  color: #ddeeff;
+  text-transform: uppercase;
+  text-shadow: 0 0 10px rgba(180,220,255,0.5);
+}
+#sel-dist {
+  font-size: 8px;
+  letter-spacing: 0.1em;
+  color: #7090a0;
+  margin-top: 3px;
+}
+
+/* Bottom nav */
+#bottom-nav {
+  position: absolute;
+  bottom: 22px;
+  left: 22px;
+  display: flex;
+  gap: 3px;
+  pointer-events: auto;
+}
+.nav-btn {
+  padding: 10px 22px;
+  font-family: inherit;
+  font-size: 9px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  cursor: pointer;
+  background: rgba(0,4,12,0.75);
+  border: 1px solid #253545;
+  color: #7090a0;
+  transition: all .2s;
+}
+.nav-btn:hover { border-color: #5a8090; color: #aaccdd; }
+.nav-btn.active { border-color: #90b0c0; color: #eef4ff; background: rgba(10,25,45,0.95); }
+
+/* Bottom-right hint */
+#hint {
+  position: absolute;
+  bottom: 22px;
+  right: 22px;
+  font-size: 7px;
+  letter-spacing: 0.16em;
+  color: #4a6878;
+  text-align: right;
+  line-height: 2;
+  text-transform: uppercase;
+  pointer-events: none;
+}
+
+/* Scanlines + vignette */
+#scanlines {
+  position: fixed;
+  inset: 0;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    rgba(0,0,0,0.04) 2px,
+    rgba(0,0,0,0.04) 4px
+  );
+  pointer-events: none;
+  z-index: 200;
+}
+#vignette {
+  position: fixed;
+  inset: 0;
+  background: radial-gradient(ellipse at center, transparent 55%, rgba(0,0,0,0.65) 100%);
+  pointer-events: none;
+  z-index: 150;
+}
+
+/* About modal */
+#modal-bg {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.6);
+  z-index: 490;
+  pointer-events: auto;
+}
+#about-modal {
+  display: none;
+  position: fixed;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  background: rgba(3,7,14,0.97);
+  border: 1px solid #2a3a4a;
+  padding: 32px;
+  max-width: 420px;
+  width: 92%;
+  z-index: 500;
+  pointer-events: auto;
+}
+#about-modal h2 {
+  font-size: 11px;
+  letter-spacing: 0.3em;
+  color: #ddeeff;
+  text-transform: uppercase;
+  margin-bottom: 18px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #253545;
+}
+#about-modal p {
+  font-size: 9px;
+  line-height: 1.9;
+  color: #7090a0;
+  letter-spacing: 0.07em;
+  margin-bottom: 12px;
+}
+#about-modal p span { color: #aaccdd; }
+#about-close {
+  margin-top: 18px;
+  padding: 8px 18px;
+  background: transparent;
+  border: 1px solid #3a5060;
+  color: #7090a0;
+  font-family: inherit;
+  font-size: 8px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: all .2s;
+}
+#about-close:hover { border-color: #8aaabb; color: #c0d8e8; }
+</style>
 </head>
 <body>
-  <canvas id="c"></canvas>
-  <div id="scanlines"></div>
-  <div id="vignette"></div>
-  <div id="hud">
-    <div class="corner tl"></div><div class="corner tr"></div>
-    <div class="corner bl"></div><div class="corner br"></div>
 
-    <div class="title">◈&nbsp;&nbsp;HAIL MARY — STELLAR NAVIGATION&nbsp;&nbsp;◈</div>
+<div id="canvas-container"></div>
+<div id="scanlines"></div>
+<div id="vignette"></div>
 
-    <div class="tabs">
-      <div class="tab active">NAVIGATION</div>
-      <div class="tab">COLOR MAP</div>
-      <div class="tab">SUPERNOVA</div>
-    </div>
-
-    <div id="dest-panel">
-      <div class="dest-title">DESTINATION</div>
-      <div class="dest-name">★&nbsp;TAU CETI</div>
-      <div class="dest-sub">DIST: 3.651 PC &nbsp;/&nbsp; 11.91 LY</div>
-    </div>
-
-    <div id="info-panel">
-      <div class="lbl">SELECTED OBJECT</div>
-      <div id="star-name">SOL / EARTH</div>
-      <div style="height:7px"></div>
-      <div class="lbl">DISTANCE FROM SOL</div>
-      <div class="val" id="star-dist">0.000 PC &nbsp;/&nbsp; 0.00 LY</div>
-      <div style="height:4px"></div>
-      <div class="lbl">SPECTRAL TYPE</div>
-      <div class="val" id="star-sp">G2V</div>
-    </div>
-
-    <div id="nav-buttons">
-      <button class="nav-btn" onclick="flyPreset('sol')">◈&nbsp; SOL SYSTEM</button>
-      <button class="nav-btn" onclick="flyPreset('trajectory')">⟶&nbsp; TRAJECTORY</button>
-      <button class="nav-btn" onclick="flyPreset('tauceti')">★&nbsp; TAU CETI</button>
-      <button class="nav-btn" onclick="flyPreset('galactic')">⊕&nbsp; GALACTIC VIEW</button>
-    </div>
-
-    <div class="gaia-label">GAIA DR3 &nbsp;·&nbsp; HIPPARCOS &nbsp;·&nbsp; J2000 EQUATORIAL &nbsp;·&nbsp; 1 UNIT = 1 PARSEC</div>
+<div id="ui">
+  <div id="title-block">
+    <div id="title-main">HAIL MARY</div>
+    <div id="title-sub">Stellar Navigation Chart</div>
+    <div id="title-data">GAIA DR3 &middot; ECL J2000 &middot; SOL-CENTRED</div>
+    <button id="about-btn" onclick="openAbout()">? ABOUT THIS CHART</button>
   </div>
 
-  <script type="module">
-    import * as THREE from 'three';
-    import { OrbitControls }    from 'three/addons/controls/OrbitControls.js';
-    import { CSS2DRenderer, CSS2DObject } from 'three/addons/renderers/CSS2DRenderer.js';
+  <div id="top-tabs">
+    <button class="tab-btn active" onclick="setTab(this,'navigation')">
+      <span class="tab-dot"></span>NAVIGATION
+    </button>
+    <button class="tab-btn" onclick="setTab(this,'color')">
+      <span class="tab-dot"></span>COLOR
+    </button>
+    <button class="tab-btn" onclick="setTab(this,'supernova')">
+      <span class="tab-dot"></span>SUPERNOVA
+    </button>
+  </div>
 
-    // ── Star catalogue (real astrometric data) ────────────────────────────────
-    const STARS = [
-      { name:'SOL / EARTH',       ra:0,       dec:0,       dist:0,     sp:'G2V',   sz:2.2,  isOrigin:true },
-      { name:'ALPHA CENTAURI',    ra:219.9,   dec:-60.84,  dist:1.339, sp:'G2V',   sz:1.4 },
-      { name:"BARNARD'S STAR",    ra:269.45,  dec:4.693,   dist:1.828, sp:'M4Ve',  sz:0.75 },
-      { name:'WOLF 359',          ra:164.12,  dec:7.015,   dist:2.386, sp:'M6Ve',  sz:0.65 },
-      { name:'LALANDE 21185',     ra:165.83,  dec:35.968,  dist:2.547, sp:'M2Ve',  sz:0.8 },
-      { name:'SIRIUS',            ra:101.29,  dec:-16.716, dist:2.637, sp:'A1Vm',  sz:1.9 },
-      { name:'LUYTEN 726-8',      ra:24.76,   dec:-17.95,  dist:2.68,  sp:'M5Ve',  sz:0.6 },
-      { name:'WISE 0855-0714',    ra:133.79,  dec:-7.24,   dist:2.231, sp:'Y',     sz:0.55 },
-      { name:'ROSS 154',          ra:283.82,  dec:-23.84,  dist:2.97,  sp:'M3.5',  sz:0.65 },
-      { name:'ROSS 248',          ra:355.00,  dec:44.17,   dist:3.162, sp:'M5.5',  sz:0.6 },
-      { name:'EPSILON ERIDANI',   ra:53.23,   dec:-9.458,  dist:3.218, sp:'K2V',   sz:1.05 },
-      { name:'LACAILLE 9352',     ra:346.47,  dec:-35.85,  dist:3.291, sp:'M1Ve',  sz:0.7 },
-      { name:'ROSS 128',          ra:176.92,  dec:0.808,   dist:3.368, sp:'M4V',   sz:0.7 },
-      { name:'PROCYON',           ra:114.83,  dec:5.227,   dist:3.497, sp:'F5IV',  sz:1.35 },
-      { name:'61 CYGNI',          ra:316.73,  dec:38.75,   dist:3.498, sp:'K5V',   sz:0.9 },
-      { name:'EPSILON INDI',      ra:330.84,  dec:-56.79,  dist:3.636, sp:'K5Ve',  sz:0.9 },
-      { name:'TAU CETI',          ra:26.017,  dec:-15.938, dist:3.651, sp:'G8V',   sz:1.15, isDestination:true },
-      { name:"TEEGARDEN'S STAR",  ra:37.50,   dec:8.37,    dist:3.831, sp:'M7V',   sz:0.55 },
-      { name:"KAPTEYN'S STAR",    ra:77.93,   dec:-45.02,  dist:3.912, sp:'M1Vp',  sz:0.72 },
-      { name:'KRUGER 60',         ra:315.17,  dec:56.86,   dist:4.0,   sp:'M2V',   sz:0.65 },
-      { name:'40 ERIDANI',        ra:63.82,   dec:-7.65,   dist:4.983, sp:'K1Ve',  sz:1.0 },
-      { name:'ETA CASSIOPEIAE',   ra:12.28,   dec:57.82,   dist:5.948, sp:'F9V',   sz:1.1 },
-      { name:'POLLUX',            ra:116.33,  dec:28.03,   dist:10.34, sp:'K0III', sz:1.6 },
-      { name:'ALDEBARAN',         ra:68.98,   dec:16.51,   dist:20.0,  sp:'K5III', sz:2.1 },
-      { name:'REGULUS',           ra:152.09,  dec:11.97,   dist:24.3,  sp:'B7V',   sz:1.9 },
-    ];
+  <div id="selected-hud">
+    <div id="sel-name"></div>
+    <div id="sel-dist"></div>
+  </div>
 
-    // Spectral type → colour
-    const SP_COLOR = {
-      O:0x9bb0ff, B:0xaabfff, A:0xcad7ff, F:0xf8f7ff,
-      G:0xfff4ea, K:0xffdab5, M:0xffaa80, Y:0x884422,
-    };
-    const spColor = sp => SP_COLOR[sp[0]] || 0xffffff;
+  <div id="info-panel">
+    <div class="info-row">
+      <span class="info-lbl">Range</span>
+      <span class="info-val bright" id="range-val">— PC / — LY</span>
+    </div>
+    <div class="info-row">
+      <span class="info-lbl">Near Field</span>
+      <span class="info-val" id="nf-val">53,836</span>
+    </div>
+    <div class="info-row">
+      <span class="info-lbl">Backdrop</span>
+      <span class="info-val">GAIA DR3 ALL-SKY</span>
+    </div>
+    <div class="info-row">
+      <span class="info-lbl">Dest</span>
+      <span class="info-val dest">&#9733; TAU CETI</span>
+    </div>
+  </div>
 
-    // Equatorial J2000 → Three.js XYZ  (x=East, y=North, z=toward-observer)
-    function toVec3(ra_deg, dec_deg, dist_pc) {
-      if (dist_pc === 0) return new THREE.Vector3(0, 0, 0);
-      const ra = ra_deg * Math.PI / 180, dec = dec_deg * Math.PI / 180;
-      return new THREE.Vector3(
-        dist_pc * Math.cos(dec) * Math.cos(ra),
-        dist_pc * Math.sin(dec),
-       -dist_pc * Math.cos(dec) * Math.sin(ra)
-      );
+  <div id="bottom-nav">
+    <button class="nav-btn" id="nav-sol"        onclick="navTo('sol',this)">Sol System</button>
+    <button class="nav-btn active" id="nav-trajectory" onclick="navTo('trajectory',this)">Trajectory</button>
+    <button class="nav-btn" id="nav-tauceti"    onclick="navTo('tauceti',this)">Tau Ceti</button>
+    <button class="nav-btn" id="nav-galactic"   onclick="navTo('galactic',this)">Galactic</button>
+  </div>
+
+  <div id="hint">
+    &middot; DRAG ORBIT &middot; SCROLL ZOOM<br>
+    &middot; CLICK STAR TO CENTRE<br>
+    PROJECT HAIL MARY
+  </div>
+</div>
+
+<div id="modal-bg" onclick="closeAbout()"></div>
+<div id="about-modal">
+  <h2>About This Chart</h2>
+  <p>An interactive 3D stellar navigation chart inspired by the in-ship computer display from <span>Project Hail Mary</span>.</p>
+  <p>Star positions are computed from real astrometric data (right ascension, declination, parallax). The coordinate system is Sol-centred equatorial J2000, with the celestial equatorial plane as the reference grid.</p>
+  <p>The <span>red dashed trajectory</span> represents the route of the Hail Mary spacecraft from Sol to Tau Ceti (<span>3.65 pc / 11.9 ly</span>).</p>
+  <p>
+    <span>DRAG</span> to orbit &middot; <span>SCROLL</span> to zoom<br>
+    <span>CLICK</span> any star to centre on it<br>
+    Use bottom buttons for preset views
+  </p>
+  <button id="about-close" onclick="closeAbout()">[ CLOSE ]</button>
+</div>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.168.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.168.0/examples/jsm/"
+  }
+}
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { CSS2DRenderer, CSS2DObject } from 'three/addons/renderers/CSS2DRenderer.js';
+
+// ═══════════════════════════════════════════════════════
+//  STAR CATALOGUE
+//  ra = right ascension (degrees)
+//  dec = declination (degrees)
+//  dist = distance (parsecs)
+//  sp = spectral type first letter
+// ═══════════════════════════════════════════════════════
+const STARS = [
+  { name:'SOL / EARTH',      ra:0,      dec:0,       dist:0,     sp:'G', sz:2.2,  isOrigin:true },
+  { name:'ALPHA CENTAURI',   ra:219.9,  dec:-60.84,  dist:1.339, sp:'G', sz:1.4 },
+  { name:"BARNARD'S STAR",   ra:269.45, dec:4.693,   dist:1.828, sp:'M', sz:0.75 },
+  { name:'WOLF 359',         ra:164.12, dec:7.015,   dist:2.386, sp:'M', sz:0.65 },
+  { name:'LALANDE 21185',    ra:165.83, dec:35.968,  dist:2.547, sp:'M', sz:0.8 },
+  { name:'SIRIUS',           ra:101.29, dec:-16.716, dist:2.637, sp:'A', sz:1.9 },
+  { name:'LUYTEN 726-8',     ra:24.76,  dec:-17.95,  dist:2.68,  sp:'M', sz:0.6 },
+  { name:'WISE 0855-0714',   ra:133.79, dec:-7.24,   dist:2.231, sp:'Y', sz:0.55 },
+  { name:'ROSS 154',         ra:283.82, dec:-23.84,  dist:2.97,  sp:'M', sz:0.65 },
+  { name:'ROSS 248',         ra:355.00, dec:44.17,   dist:3.162, sp:'M', sz:0.6 },
+  { name:'EPSILON ERIDANI',  ra:53.23,  dec:-9.458,  dist:3.218, sp:'K', sz:1.05 },
+  { name:'LACAILLE 9352',    ra:346.47, dec:-35.85,  dist:3.291, sp:'M', sz:0.7 },
+  { name:'ROSS 128',         ra:176.92, dec:0.808,   dist:3.368, sp:'M', sz:0.7 },
+  { name:'PROCYON',          ra:114.83, dec:5.227,   dist:3.497, sp:'F', sz:1.35 },
+  { name:'61 CYGNI',         ra:316.73, dec:38.75,   dist:3.498, sp:'K', sz:0.9 },
+  { name:'EPSILON INDI',     ra:330.84, dec:-56.79,  dist:3.636, sp:'K', sz:0.9 },
+  { name:'TAU CETI',         ra:26.017, dec:-15.938, dist:3.651, sp:'G', sz:1.15, isDestination:true },
+  { name:"TEEGARDEN'S STAR", ra:37.50,  dec:8.37,    dist:3.831, sp:'M', sz:0.55 },
+  { name:"KAPTEYN'S STAR",   ra:77.93,  dec:-45.02,  dist:3.912, sp:'M', sz:0.72 },
+  { name:'KRUGER 60',        ra:315.17, dec:56.86,   dist:4.0,   sp:'M', sz:0.65 },
+  { name:'40 ERIDANI',       ra:63.82,  dec:-7.65,   dist:4.983, sp:'K', sz:1.0 },
+  { name:'ETA CASSIOPEIAE',  ra:12.28,  dec:57.82,   dist:5.948, sp:'F', sz:1.1 },
+  { name:'POLLUX',           ra:116.33, dec:28.03,   dist:10.34, sp:'K', sz:1.6 },
+  { name:'ALDEBARAN',        ra:68.98,  dec:16.51,   dist:20.0,  sp:'K', sz:2.1 },
+  { name:'REGULUS',          ra:152.09, dec:11.97,   dist:24.3,  sp:'B', sz:1.9 },
+];
+
+// ── Spectral type → colour ──────────────────────────────
+const SP_COLOR = {
+  O: new THREE.Color(0x99aaff),
+  B: new THREE.Color(0xbbccff),
+  A: new THREE.Color(0xddeeff),
+  F: new THREE.Color(0xfffff0),
+  G: new THREE.Color(0xfff5c0),
+  K: new THREE.Color(0xffcc66),
+  M: new THREE.Color(0xff7744),
+  Y: new THREE.Color(0x882211),
+};
+function spColor(sp) { return (SP_COLOR[sp] || new THREE.Color(0xcccccc)).clone(); }
+
+// ── RA/Dec/dist → Three.js XYZ ──────────────────────────
+// X = toward RA 0°  Dec 0°
+// Y = toward Dec +90°
+// Z = toward RA 270° Dec 0°  (so +Z faces viewer initially)
+function toVec3(ra_deg, dec_deg, dist_pc) {
+  if (dist_pc === 0) return new THREE.Vector3(0, 0, 0);
+  const ra  = ra_deg  * Math.PI / 180;
+  const dec = dec_deg * Math.PI / 180;
+  return new THREE.Vector3(
+     dist_pc * Math.cos(dec) * Math.cos(ra),
+     dist_pc * Math.sin(dec),
+    -dist_pc * Math.cos(dec) * Math.sin(ra)
+  );
+}
+
+// ── Pre-compute positions ───────────────────────────────
+STARS.forEach(s => { s.pos = toVec3(s.ra, s.dec, s.dist); });
+
+// ═══════════════════════════════════════════════════════
+//  RENDERER SETUP
+// ═══════════════════════════════════════════════════════
+const W = window.innerWidth, H = window.innerHeight;
+
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.setSize(W, H);
+renderer.setClearColor(0x000308, 1);
+document.getElementById('canvas-container').appendChild(renderer.domElement);
+
+const labelRenderer = new CSS2DRenderer();
+labelRenderer.setSize(W, H);
+labelRenderer.domElement.style.cssText =
+  'position:fixed;top:0;left:0;pointer-events:none;z-index:10;';
+document.body.appendChild(labelRenderer.domElement);
+
+const scene = new THREE.Scene();
+
+const camera = new THREE.PerspectiveCamera(48, W / H, 0.01, 2000);
+camera.position.set(4, 7, 14);
+
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true;
+controls.dampingFactor  = 0.07;
+controls.minDistance    = 0.3;
+controls.maxDistance    = 180;
+controls.target.set(1.5, -0.5, -0.8);
+controls.update();
+
+// ═══════════════════════════════════════════════════════
+//  BACKGROUND STAR FIELD  (galactic-plane concentrated)
+// ═══════════════════════════════════════════════════════
+
+// North Galactic Pole direction in our coordinate system
+const NGP_RA  = 192.85 * Math.PI / 180;
+const NGP_DEC =  27.13 * Math.PI / 180;
+const NGP = new THREE.Vector3(
+   Math.cos(NGP_DEC) * Math.cos(NGP_RA),
+   Math.sin(NGP_DEC),
+  -Math.cos(NGP_DEC) * Math.sin(NGP_RA)
+).normalize();
+
+function makeBackgroundStars() {
+  const N = 70000;
+  const pos   = new Float32Array(N * 3);
+  const col   = new Float32Array(N * 3);
+  const sizes = new Float32Array(N);
+
+  const PALETTE = [
+    [0.80, 0.88, 1.00],  // blue-white
+    [0.95, 0.97, 1.00],  // white
+    [1.00, 0.99, 0.92],  // warm white
+    [1.00, 0.96, 0.72],  // yellow
+    [1.00, 0.78, 0.56],  // orange
+  ];
+  const WEIGHTS = [0.08, 0.44, 0.28, 0.12, 0.08];
+
+  for (let i = 0; i < N; i++) {
+    // Sphere sample
+    const phi   = Math.acos(2 * Math.random() - 1) - Math.PI / 2; // latitude
+    const theta = Math.random() * Math.PI * 2;
+    const r = 380 + Math.random() * 80;
+
+    // Galactic concentration: favour stars near galactic plane
+    const dir = new THREE.Vector3(
+      Math.cos(phi) * Math.cos(theta),
+      Math.sin(phi),
+      Math.cos(phi) * Math.sin(theta)
+    );
+    const galLat = Math.asin(Math.abs(dir.dot(NGP)));
+    const density = 0.18 + 0.82 * Math.exp(-galLat * galLat / 0.08);
+    if (Math.random() > density) {
+      // Reject and place a faint halo star instead
+      dir.set(Math.random()-0.5, Math.random()-0.5, Math.random()-0.5).normalize();
     }
 
-    STARS.forEach(s => { s.pos = toVec3(s.ra, s.dec, s.dist); });
-    const TAU = STARS.find(s => s.isDestination).pos;
+    pos[i*3]   = dir.x * r;
+    pos[i*3+1] = dir.y * r;
+    pos[i*3+2] = dir.z * r;
 
-    // ── Canvas texture helpers ────────────────────────────────────────────────
-    function makeGlowTex(size = 64) {
-      const c = document.createElement('canvas'); c.width = c.height = size;
-      const ctx = c.getContext('2d');
-      const g = ctx.createRadialGradient(size/2,size/2,0,size/2,size/2,size/2);
-      g.addColorStop(0,   'rgba(255,255,255,1)');
-      g.addColorStop(0.3, 'rgba(255,255,255,.65)');
-      g.addColorStop(1,   'rgba(255,255,255,0)');
-      ctx.fillStyle = g; ctx.fillRect(0,0,size,size);
-      return new THREE.CanvasTexture(c);
+    // Pick colour
+    let ci = 0, acc = 0, rv = Math.random();
+    for (let j = 0; j < WEIGHTS.length; j++) {
+      acc += WEIGHTS[j];
+      if (rv < acc) { ci = j; break; }
     }
+    const bright = 0.35 + Math.random() * 0.65;
+    col[i*3]   = PALETTE[ci][0] * bright;
+    col[i*3+1] = PALETTE[ci][1] * bright;
+    col[i*3+2] = PALETTE[ci][2] * bright;
 
-    function makeCrosshairTex(color = '#8cf', size = 64) {
-      const c = document.createElement('canvas'); c.width = c.height = size;
-      const ctx = c.getContext('2d');
-      ctx.strokeStyle = color; ctx.lineWidth = 1.5; ctx.globalAlpha = .9;
-      const m = size / 2;
-      // diamond
-      ctx.beginPath();
-      ctx.moveTo(m, 3); ctx.lineTo(m+9,m); ctx.lineTo(m,size-3); ctx.lineTo(m-9,m); ctx.closePath();
-      ctx.stroke();
-      // tick marks
-      [[m-11,m, m-17,m],[m+11,m, m+17,m],[m,m-11, m,m-17],[m,m+11, m,m+17]].forEach(([x1,y1,x2,y2])=>{
-        ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2); ctx.stroke();
-      });
-      return new THREE.CanvasTexture(c);
-    }
+    sizes[i] = Math.random() < 0.015
+      ? 2.2 + Math.random() * 2.5    // occasional bright star
+      : 0.4 + Math.random() * 1.4;
+  }
 
-    function makeShipTex(size = 32) {
-      const c = document.createElement('canvas'); c.width = c.height = size;
-      const ctx = c.getContext('2d');
-      ctx.fillStyle = '#ff6644'; ctx.globalAlpha = .9;
-      ctx.beginPath();
-      ctx.moveTo(size/2, 2); ctx.lineTo(size-3, size-2);
-      ctx.lineTo(size/2, size-7); ctx.lineTo(3, size-2); ctx.closePath();
-      ctx.fill();
-      return new THREE.CanvasTexture(c);
-    }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.BufferAttribute(pos,   3));
+  geo.setAttribute('aColor',   new THREE.BufferAttribute(col,   3));
+  geo.setAttribute('aSize',    new THREE.BufferAttribute(sizes, 1));
 
-    // ── Renderer / Scene / Camera / Controls ─────────────────────────────────
-    const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x00010a);
-
-    const camera = new THREE.PerspectiveCamera(50, innerWidth/innerHeight, 0.001, 800);
-    camera.position.set(0.4, 1.8, 3.2);
-
-    const renderer = new THREE.WebGLRenderer({ canvas:document.getElementById('c'), antialias:true });
-    renderer.setPixelRatio(devicePixelRatio);
-    renderer.setSize(innerWidth, innerHeight);
-
-    const css2d = new CSS2DRenderer();
-    css2d.setSize(innerWidth, innerHeight);
-    css2d.domElement.style.cssText = 'position:fixed;top:0;left:0;pointer-events:none;z-index:5;';
-    document.body.appendChild(css2d.domElement);
-
-    const controls = new OrbitControls(camera, renderer.domElement);
-    controls.enableDamping = true; controls.dampingFactor = 0.08;
-    controls.minDistance = 0.05; controls.maxDistance = 200;
-    controls.target.set(0,0,0);
-
-    // ── Background star field (70 k, concentrated along galactic plane) ───────
-    const NGP = new THREE.Vector3(
-       Math.cos(27.13*Math.PI/180) * Math.cos(192.85*Math.PI/180),
-       Math.sin(27.13*Math.PI/180),
-      -Math.cos(27.13*Math.PI/180) * Math.sin(192.85*Math.PI/180)
-    ).normalize();
-
-    const BG_N = 70000;
-    const bgPos = new Float32Array(BG_N * 3);
-    const bgCol = new Float32Array(BG_N * 3);
-    const bgSz  = new Float32Array(BG_N);
-    let bi = 0;
-    const _dir = new THREE.Vector3();
-    while (bi < BG_N) {
-      _dir.set(Math.random()*2-1, Math.random()*2-1, Math.random()*2-1);
-      if (_dir.lengthSq() > 1) continue;
-      _dir.normalize();
-      const galLat = Math.asin(Math.abs(_dir.dot(NGP)));
-      const density = 0.18 + 0.82 * Math.exp(-galLat*galLat / 0.08);
-      if (Math.random() > density) continue;
-      const d = 30 + Math.random() * 270;
-      bgPos[bi*3]   = _dir.x * d;
-      bgPos[bi*3+1] = _dir.y * d;
-      bgPos[bi*3+2] = _dir.z * d;
-      const t = Math.random();
-      bgCol[bi*3]   = 0.62 + t * 0.38;
-      bgCol[bi*3+1] = 0.68 + t * 0.22;
-      bgCol[bi*3+2] = 0.78 + (1-t) * 0.22;
-      bgSz[bi] = 0.25 + Math.random() * 0.75;
-      bi++;
-    }
-
-    const bgGeo = new THREE.BufferGeometry();
-    bgGeo.setAttribute('position', new THREE.BufferAttribute(bgPos, 3));
-    bgGeo.setAttribute('color',    new THREE.BufferAttribute(bgCol, 3));
-    bgGeo.setAttribute('size',     new THREE.BufferAttribute(bgSz,  1));
-
-    const bgGlowTex = makeGlowTex(64);
-    const bgMat = new THREE.ShaderMaterial({
-      uniforms: { tex:{ value: bgGlowTex } },
-      vertexShader:`
-        attribute float size;
-        attribute vec3 color;
-        varying vec3 vColor;
-        void main(){
-          vColor = color;
-          vec4 mv = modelViewMatrix * vec4(position,1.);
-          gl_PointSize = size * (280. / -mv.z);
-          gl_Position = projectionMatrix * mv;
-        }`,
-      fragmentShader:`
-        uniform sampler2D tex;
-        varying vec3 vColor;
-        void main(){
-          vec4 t = texture2D(tex, gl_PointCoord);
-          if(t.a < .04) discard;
-          gl_FragColor = vec4(vColor,1.) * t;
-        }`,
-      transparent:true, vertexColors:true, depthWrite:false,
-    });
-    scene.add(new THREE.Points(bgGeo, bgMat));
-
-    // ── Reference grid ────────────────────────────────────────────────────────
-    const grid = new THREE.GridHelper(60, 60, 0x0d2233, 0x071520);
-    grid.material.opacity = 0.35; grid.material.transparent = true;
-    scene.add(grid);
-
-    // ── Sol–Tau Ceti trajectory arc ───────────────────────────────────────────
-    const arcMid = TAU.clone().multiplyScalar(0.5).add(new THREE.Vector3(0, TAU.length()*0.28, 0));
-    const curve  = new THREE.CatmullRomCurve3([new THREE.Vector3(0,0,0), arcMid, TAU.clone()]);
-    const arcGeo = new THREE.BufferGeometry().setFromPoints(curve.getPoints(150));
-    const arcMat = new THREE.LineDashedMaterial({ color:0xff3322, dashSize:.16, gapSize:.08 });
-    const arcLine = new THREE.Line(arcGeo, arcMat);
-    arcLine.computeLineDistances();
-    scene.add(arcLine);
-
-    // Hail Mary ship marker at 70% of arc
-    const shipPos = curve.getPoint(0.7);
-    const shipGeo = new THREE.BufferGeometry().setFromPoints([shipPos]);
-    const shipMat = new THREE.PointsMaterial({
-      size:12, sizeAttenuation:false,
-      map:makeShipTex(), transparent:true, depthWrite:false, color:0xff6644,
-    });
-    scene.add(new THREE.Points(shipGeo, shipMat));
-
-    // ── Named star objects ────────────────────────────────────────────────────
-    const starGlowTex = makeGlowTex(128);
-    const hitObjects  = [];
-
-    STARS.forEach(star => {
-      const col = spColor(star.sp);
-
-      // Glow sprite
-      const spMat = new THREE.SpriteMaterial({
-        map:starGlowTex, color:col,
-        transparent:true, depthWrite:false, blending:THREE.AdditiveBlending,
-      });
-      const sprite = new THREE.Sprite(spMat);
-      sprite.scale.setScalar(star.sz * 0.32);
-      sprite.position.copy(star.pos);
-      scene.add(sprite);
-
-      // Crosshair
-      const chColor = star.isOrigin ? '#ffd060' : star.isDestination ? '#ff7755' : '#66aaff';
-      const chMat = new THREE.SpriteMaterial({
-        map:makeCrosshairTex(chColor), transparent:true, depthWrite:false,
-      });
-      const ch = new THREE.Sprite(chMat);
-      ch.scale.setScalar(star.sz * 0.18 + 0.20);
-      ch.position.copy(star.pos);
-      scene.add(ch);
-
-      // Vertical drop-line to grid plane
-      if (star.dist > 0) {
-        const dropGeo = new THREE.BufferGeometry().setFromPoints([
-          star.pos.clone(), new THREE.Vector3(star.pos.x, 0, star.pos.z),
-        ]);
-        const r = ((col>>16)&0xff)/255, g = ((col>>8)&0xff)/255, b = (col&0xff)/255;
-        const dropMat = new THREE.LineBasicMaterial({
-          color:new THREE.Color(r*.6,g*.6,b*.6), opacity:.22, transparent:true,
-        });
-        scene.add(new THREE.Line(dropGeo, dropMat));
+  const mat = new THREE.ShaderMaterial({
+    vertexShader: `
+      attribute float aSize;
+      attribute vec3  aColor;
+      varying   vec3  vCol;
+      void main() {
+        vCol = aColor;
+        vec4 mv = modelViewMatrix * vec4(position, 1.0);
+        gl_PointSize = aSize * (280.0 / -mv.z);
+        gl_Position  = projectionMatrix * mv;
       }
+    `,
+    fragmentShader: `
+      varying vec3 vCol;
+      void main() {
+        float d = length(gl_PointCoord - .5);
+        if (d > .5) discard;
+        float a = 1.0 - smoothstep(.18, .5, d);
+        gl_FragColor = vec4(vCol, a);
+      }
+    `,
+    transparent: true,
+    depthWrite:  false,
+    blending:    THREE.AdditiveBlending,
+  });
 
-      // CSS2D label
-      const div = document.createElement('div');
-      div.className = 'star-label'
-        + (star.isOrigin ? ' origin' : star.isDestination ? ' dest' : '');
-      div.textContent = star.name;
-      const lbl = new CSS2DObject(div);
-      lbl.position.copy(star.pos);
-      scene.add(lbl);
+  return new THREE.Points(geo, mat);
+}
+scene.add(makeBackgroundStars());
 
-      // Invisible hit sphere for raycasting
-      const hitGeo  = new THREE.SphereGeometry(Math.max(0.14, star.sz * 0.1), 6, 6);
-      const hitMat  = new THREE.MeshBasicMaterial({ visible:false });
-      const hitMesh = new THREE.Mesh(hitGeo, hitMat);
-      hitMesh.position.copy(star.pos);
-      hitMesh.userData = star;
-      scene.add(hitMesh);
-      hitObjects.push(hitMesh);
+// ═══════════════════════════════════════════════════════
+//  REFERENCE GRID
+// ═══════════════════════════════════════════════════════
+function makeGrid() {
+  const g = new THREE.Group();
+
+  const inner = new THREE.GridHelper(30, 30, 0x1a4060, 0x0f2535);
+  inner.material.opacity = 0.7;
+  inner.material.transparent = true;
+  g.add(inner);
+
+  const outer = new THREE.GridHelper(100, 20, 0x102535, 0x081520);
+  outer.material.opacity = 0.45;
+  outer.material.transparent = true;
+  g.add(outer);
+
+  return g;
+}
+scene.add(makeGrid());
+
+// ═══════════════════════════════════════════════════════
+//  CANVAS TEXTURE HELPERS
+// ═══════════════════════════════════════════════════════
+function glowTex(col) {
+  const cv = Object.assign(document.createElement('canvas'), {width:64, height:64});
+  const ctx = cv.getContext('2d');
+  const gr = ctx.createRadialGradient(32,32,0, 32,32,32);
+  const {r,g,b} = col;
+  const rc = Math.round(r*255), gc = Math.round(g*255), bc = Math.round(b*255);
+  gr.addColorStop(0.00, `rgba(${rc},${gc},${bc},1.0)`);
+  gr.addColorStop(0.18, `rgba(${rc},${gc},${bc},0.85)`);
+  gr.addColorStop(0.45, `rgba(${rc},${gc},${bc},0.35)`);
+  gr.addColorStop(1.00, `rgba(0,0,0,0)`);
+  ctx.fillStyle = gr; ctx.fillRect(0,0,64,64);
+  return new THREE.CanvasTexture(cv);
+}
+
+function crosshairTex(col, big) {
+  const S = 64;
+  const cv = Object.assign(document.createElement('canvas'), {width:S, height:S});
+  const ctx = cv.getContext('2d');
+  const {r,g,b} = col;
+  const rc = Math.round(r*255), gc = Math.round(g*255), bc = Math.round(b*255);
+  const half = S / 2;
+  const outerR = big ? 24 : 16;
+  const gap = 0.28; // radians of gap between arc segments
+
+  ctx.strokeStyle = `rgba(${rc},${gc},${bc},0.92)`;
+  ctx.lineWidth = big ? 1.6 : 1.2;
+  ctx.lineCap = 'round';
+
+  // 4 arc segments (quarter-circle each, with gaps between)
+  for (let i = 0; i < 4; i++) {
+    const a0 = i * Math.PI / 2 + gap / 2;
+    const a1 = (i + 1) * Math.PI / 2 - gap / 2;
+    ctx.beginPath();
+    ctx.arc(half, half, outerR, a0, a1);
+    ctx.stroke();
+  }
+
+  // Tick marks at the four cardinal points, just outside the ring
+  ctx.lineWidth = big ? 1.2 : 0.9;
+  for (let i = 0; i < 4; i++) {
+    const a = i * Math.PI / 2;
+    const x1 = half + Math.cos(a) * (outerR + 3);
+    const y1 = half + Math.sin(a) * (outerR + 3);
+    const x2 = half + Math.cos(a) * (outerR + 7);
+    const y2 = half + Math.sin(a) * (outerR + 7);
+    ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
+  }
+
+  // Centre dot
+  ctx.fillStyle = `rgba(${rc},${gc},${bc},1)`;
+  ctx.beginPath();
+  ctx.arc(half, half, big ? 2.8 : 1.8, 0, Math.PI * 2);
+  ctx.fill();
+  return new THREE.CanvasTexture(cv);
+}
+
+function shipTex() {
+  const cv = Object.assign(document.createElement('canvas'), {width:64, height:64});
+  const ctx = cv.getContext('2d');
+  ctx.strokeStyle = '#ff3333';
+  ctx.lineWidth = 1.5;
+  // Outer ring
+  ctx.beginPath(); ctx.arc(32,32,14,0,Math.PI*2); ctx.stroke();
+  // Inner circle
+  ctx.beginPath(); ctx.arc(32,32,5,0,Math.PI*2); ctx.stroke();
+  // 4 radiating lines
+  for (let i=0; i<4; i++) {
+    const a = (i/4)*Math.PI*2;
+    ctx.beginPath();
+    ctx.moveTo(32+Math.cos(a)*6, 32+Math.sin(a)*6);
+    ctx.lineTo(32+Math.cos(a)*13, 32+Math.sin(a)*13);
+    ctx.stroke();
+  }
+  ctx.fillStyle = 'rgba(255,51,51,0.85)';
+  ctx.beginPath(); ctx.arc(32,32,3,0,Math.PI*2); ctx.fill();
+  return new THREE.CanvasTexture(cv);
+}
+
+// ═══════════════════════════════════════════════════════
+//  NAMED STARS
+// ═══════════════════════════════════════════════════════
+const hitMeshes    = [];  // for raycasting
+const starGroup    = new THREE.Group();
+scene.add(starGroup);
+
+// Sprite material cache (avoid recreating same colours)
+const _glowCache = {};
+function getGlowMat(col, opacity=0.9) {
+  const key = col.getHexString();
+  if (!_glowCache[key]) {
+    _glowCache[key] = new THREE.SpriteMaterial({
+      map: glowTex(col),
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+      transparent: true,
     });
+  }
+  const m = _glowCache[key].clone();
+  m.opacity = opacity;
+  return m;
+}
 
-    // ── Camera presets ────────────────────────────────────────────────────────
-    const PRESETS = {
-      sol:       { cam:new THREE.Vector3(0.4,1.8,3.2),  tgt:new THREE.Vector3(0,0,0) },
-      trajectory:{ cam:new THREE.Vector3(4,7,14),        tgt:new THREE.Vector3(1.5,-.5,-.8) },
-      tauceti:   { cam:TAU.clone().add(new THREE.Vector3(2,1.5,3)), tgt:TAU.clone() },
-      galactic:  { cam:new THREE.Vector3(2,42,6),        tgt:new THREE.Vector3(0,0,0) },
-    };
-    window.flyPreset = k => {
-      const p = PRESETS[k]; flyTo(p.cam, p.tgt, 1800);
-    };
+STARS.forEach(star => {
+  const pos   = star.pos;
+  const color = spColor(star.sp);
 
-    // ── Smooth ease-in-out fly-to ─────────────────────────────────────────────
-    function flyTo(cp, ct, ms) {
-      const sc = camera.position.clone(), st = controls.target.clone(), t0 = performance.now();
-      (function step() {
-        const t = Math.min((performance.now()-t0)/ms, 1);
-        const e = t<.5 ? 4*t*t*t : 1-Math.pow(-2*t+2,3)/2;
-        camera.position.lerpVectors(sc, cp, e);
-        controls.target.lerpVectors(st, ct, e);
-        controls.update();
-        if (t < 1) requestAnimationFrame(step);
-      })();
-    }
+  // Override colours for key stars
+  const crossCol = star.isDestination ? new THREE.Color(0xff2222)
+                 : star.isOrigin      ? new THREE.Color(0xffffff)
+                 : color;
 
-    // ── Click / star selection ────────────────────────────────────────────────
-    const raycaster = new THREE.Raycaster();
-    raycaster.params.Points = { threshold:0.3 };
-    const mouse = new THREE.Vector2();
-    let isDragging = false;
-    let mouseDownPos = { x:0, y:0 };
+  // ── Glow sprite ──
+  const glowScale = star.isOrigin      ? 3.2
+                  : star.isDestination ? 2.2
+                  : 0.6 + star.sz * 0.5;
+  const glowSpr = new THREE.Sprite(getGlowMat(crossCol));
+  glowSpr.scale.setScalar(glowScale);
+  glowSpr.position.copy(pos);
+  starGroup.add(glowSpr);
 
-    renderer.domElement.addEventListener('mousedown', e => {
-      mouseDownPos = { x:e.clientX, y:e.clientY }; isDragging = false;
+  // ── Crosshair sprite ──
+  const crossMat = new THREE.SpriteMaterial({
+    map: crosshairTex(crossCol, star.isOrigin || star.isDestination),
+    blending: THREE.AdditiveBlending,
+    depthWrite: false,
+    transparent: true,
+    opacity: 0.85,
+  });
+  const crossSpr = new THREE.Sprite(crossMat);
+  crossSpr.scale.setScalar(glowScale * 1.3);
+  crossSpr.position.copy(pos);
+  starGroup.add(crossSpr);
+
+  // ── Invisible hit sphere ──
+  const hitR = Math.max(0.3, 0.18 + star.dist * 0.04);
+  const hit = new THREE.Mesh(
+    new THREE.SphereGeometry(hitR, 6, 6),
+    new THREE.MeshBasicMaterial({ visible: false })
+  );
+  hit.position.copy(pos);
+  hit.userData = star;
+  starGroup.add(hit);
+  hitMeshes.push(hit);
+
+  // ── Vertical drop-line to grid ──
+  if (Math.abs(pos.y) > 0.1) {
+    const linePts = [pos.clone(), new THREE.Vector3(pos.x, 0, pos.z)];
+    const lineGeo = new THREE.BufferGeometry().setFromPoints(linePts);
+    const lineMat = new THREE.LineBasicMaterial({
+      color: crossCol,
+      opacity: 0.32,
+      transparent: true,
     });
-    renderer.domElement.addEventListener('mousemove', e => {
-      const dx = e.clientX-mouseDownPos.x, dy = e.clientY-mouseDownPos.y;
-      if (Math.sqrt(dx*dx+dy*dy) > 4) isDragging = true;
-    });
-    renderer.domElement.addEventListener('click', e => {
-      if (isDragging) return;
-      mouse.set((e.clientX/innerWidth)*2-1, -(e.clientY/innerHeight)*2+1);
-      raycaster.setFromCamera(mouse, camera);
-      const hits = raycaster.intersectObjects(hitObjects);
-      if (!hits.length) return;
-      const star = hits[0].object.userData;
-      updateInfoPanel(star);
-      const off = camera.position.clone().sub(controls.target);
-      off.normalize().multiplyScalar(Math.max(1.5, Math.min(off.length(), 6)));
-      flyTo(star.pos.clone().add(off), star.pos.clone(), 1600);
-    });
+    starGroup.add(new THREE.Line(lineGeo, lineMat));
+  }
 
-    function updateInfoPanel(star) {
-      document.getElementById('star-name').textContent = star.name;
-      document.getElementById('star-dist').textContent =
-        star.dist.toFixed(3) + ' PC  /  ' + (star.dist*3.2616).toFixed(2) + ' LY';
-      document.getElementById('star-sp').textContent = star.sp;
-    }
+  // ── CSS2D label ──
+  const div = document.createElement('div');
+  div.className = 'star-label'
+    + (star.isDestination ? ' is-destination' : '')
+    + (star.isOrigin      ? ' is-origin'      : '');
+  div.dataset.starName = star.name;
 
-    // ── Animate ───────────────────────────────────────────────────────────────
-    let tick = 0;
-    (function animate() {
-      requestAnimationFrame(animate);
-      tick += 0.012;
-      shipMat.size = 9 + Math.sin(tick * 2.2) * 2.8;
-      controls.update();
-      renderer.render(scene, camera);
-      css2d.render(scene, camera);
-    })();
+  // Show distance for non-origin stars
+  if (star.dist > 0) {
+    const ly = (star.dist * 3.2616).toFixed(1);
+    div.innerHTML = star.name + `<br><span style="font-size:8px;color:#506878;letter-spacing:.08em">${star.dist.toFixed(2)} pc &middot; ${ly} ly</span>`;
+  } else {
+    div.textContent = star.name;
+  }
 
-    // ── Resize ────────────────────────────────────────────────────────────────
-    window.addEventListener('resize', () => {
-      camera.aspect = innerWidth / innerHeight;
-      camera.updateProjectionMatrix();
-      renderer.setSize(innerWidth, innerHeight);
-      css2d.setSize(innerWidth, innerHeight);
-    });
-  </script>
+  const label = new CSS2DObject(div);
+  label.position.copy(pos);
+  label.position.x += 0.12;
+  starGroup.add(label);
+  star._labelDiv = div;
+});
+
+// ═══════════════════════════════════════════════════════
+//  TRAJECTORY  Sol → Tau Ceti
+// ═══════════════════════════════════════════════════════
+(function buildTrajectory() {
+  const solPos = new THREE.Vector3(0, 0, 0);
+  const tauPos = STARS.find(s => s.isDestination).pos.clone();
+
+  // Gentle arc passing slightly near Epsilon Eridani neighbourhood
+  const mid = solPos.clone().lerp(tauPos, 0.5);
+  mid.y -= 0.25;
+
+  const curve = new THREE.CatmullRomCurve3([solPos, mid, tauPos]);
+  const pts   = curve.getPoints(120);
+
+  const geo = new THREE.BufferGeometry().setFromPoints(pts);
+  const mat = new THREE.LineDashedMaterial({
+    color: 0xff1a1a,
+    dashSize: 0.14,
+    gapSize:  0.09,
+    linewidth: 1,
+    opacity: 0.82,
+    transparent: true,
+  });
+  const line = new THREE.Line(geo, mat);
+  line.computeLineDistances();
+  scene.add(line);
+
+  // ── Ship marker at ~70% along trajectory ──
+  const shipPos = curve.getPoint(0.70);
+  const shipSpr = new THREE.Sprite(new THREE.SpriteMaterial({
+    map: shipTex(),
+    blending: THREE.AdditiveBlending,
+    depthWrite: false,
+    transparent: true,
+    opacity: 0.92,
+  }));
+  shipSpr.scale.setScalar(0.55);
+  shipSpr.position.copy(shipPos);
+  scene.add(shipSpr);
+
+  // Ship glow
+  const shipGlowSpr = new THREE.Sprite(new THREE.SpriteMaterial({
+    map: glowTex(new THREE.Color(0xff2222)),
+    blending: THREE.AdditiveBlending,
+    depthWrite: false,
+    transparent: true,
+    opacity: 0.6,
+  }));
+  shipGlowSpr.scale.setScalar(0.9);
+  shipGlowSpr.position.copy(shipPos);
+  scene.add(shipGlowSpr);
+
+  // Ship label
+  const shipDiv = document.createElement('div');
+  shipDiv.className = 'ship-label';
+  shipDiv.textContent = 'HAIL MARY';
+  const shipLabel = new CSS2DObject(shipDiv);
+  shipLabel.position.copy(shipPos);
+  shipLabel.position.x += 0.08;
+  scene.add(shipLabel);
+
+  // Animate ship glow pulse
+  let frame = 0;
+  const pulse = () => {
+    frame++;
+    const s = 0.85 + 0.3 * Math.sin(frame * 0.04);
+    shipGlowSpr.scale.setScalar(s);
+  };
+  window._shipPulse = pulse;
+})();
+
+// ═══════════════════════════════════════════════════════
+//  INTERACTION
+// ═══════════════════════════════════════════════════════
+const raycaster = new THREE.Raycaster();
+const ptr = new THREE.Vector2();
+let isDragging = false, mouseDownX = 0, mouseDownY = 0;
+let selectedStar = null;
+
+renderer.domElement.addEventListener('mousedown', e => {
+  mouseDownX = e.clientX; mouseDownY = e.clientY;
+  isDragging = false;
+});
+renderer.domElement.addEventListener('mousemove', e => {
+  const dx = e.clientX - mouseDownX, dy = e.clientY - mouseDownY;
+  if (Math.hypot(dx,dy) > 5) isDragging = true;
+
+  // Hover cursor
+  ptr.set(
+    (e.clientX / innerWidth) * 2 - 1,
+   -(e.clientY / innerHeight) * 2 + 1
+  );
+  raycaster.setFromCamera(ptr, camera);
+  renderer.domElement.style.cursor =
+    raycaster.intersectObjects(hitMeshes).length ? 'pointer' : 'default';
+});
+
+renderer.domElement.addEventListener('click', e => {
+  if (isDragging) return;
+  ptr.set(
+    (e.clientX / innerWidth) * 2 - 1,
+   -(e.clientY / innerHeight) * 2 + 1
+  );
+  raycaster.setFromCamera(ptr, camera);
+  const hits = raycaster.intersectObjects(hitMeshes);
+  if (!hits.length) return;
+
+  const star = hits[0].object.userData;
+  selectStar(star);
+});
+
+function selectStar(star) {
+  // Reset previous label
+  if (selectedStar) {
+    selectedStar._labelDiv.classList.remove('is-selected');
+  }
+  selectedStar = star;
+  star._labelDiv.classList.add('is-selected');
+
+  // Update HUD
+  const hud = document.getElementById('selected-hud');
+  hud.style.display = 'block';
+  document.getElementById('sel-name').textContent = star.name;
+  if (star.dist > 0) {
+    const ly = (star.dist * 3.2616).toFixed(2);
+    document.getElementById('sel-dist').textContent =
+      `${star.dist.toFixed(3)} PC · ${ly} LY`;
+  } else {
+    document.getElementById('sel-dist').textContent = 'ORIGIN SYSTEM';
+  }
+
+  // Fly camera to orbit around this star
+  const offset = camera.position.clone().sub(controls.target);
+  // If offset is very large, scale it down for near stars
+  const desiredDist = Math.max(1.5, Math.min(offset.length(), 6));
+  offset.normalize().multiplyScalar(desiredDist);
+  const newCamPos = star.pos.clone().add(offset);
+
+  animateTo(newCamPos, star.pos.clone(), 1600);
+}
+
+// ── Smooth camera animation ──────────────────────────
+function animateTo(newCamPos, newTarget, ms) {
+  const startCam    = camera.position.clone();
+  const startTarget = controls.target.clone();
+  const t0 = performance.now();
+
+  function step() {
+    const raw = (performance.now() - t0) / ms;
+    const t   = Math.min(raw, 1);
+    // Ease in-out cubic
+    const e = t < 0.5 ? 4*t*t*t : 1 - Math.pow(-2*t+2,3)/2;
+
+    camera.position.lerpVectors(startCam, newCamPos, e);
+    controls.target.lerpVectors(startTarget, newTarget, e);
+    controls.update();
+
+    if (t < 1) requestAnimationFrame(step);
+  }
+  requestAnimationFrame(step);
+}
+
+// ═══════════════════════════════════════════════════════
+//  NAV PRESETS  (exposed to onclick handlers)
+// ═══════════════════════════════════════════════════════
+const TAU = STARS.find(s => s.isDestination).pos;
+
+const PRESETS = {
+  sol:        { cam: new THREE.Vector3(0.4, 1.8, 3.2),   tgt: new THREE.Vector3(0,0,0) },
+  trajectory: { cam: new THREE.Vector3(4,   7,   14),    tgt: new THREE.Vector3(1.5,-0.5,-0.8) },
+  tauceti:    { cam: TAU.clone().add(new THREE.Vector3(2,1.5,3)), tgt: TAU.clone() },
+  galactic:   { cam: new THREE.Vector3(2,  42,    6),    tgt: new THREE.Vector3(0,0,0) },
+};
+
+window.navTo = function(key, btn) {
+  const p = PRESETS[key]; if (!p) return;
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  animateTo(p.cam.clone(), p.tgt.clone(), 1900);
+};
+
+// ═══════════════════════════════════════════════════════
+//  MODAL & TABS (global helpers)
+// ═══════════════════════════════════════════════════════
+window.openAbout  = () => {
+  document.getElementById('about-modal').style.display = 'block';
+  document.getElementById('modal-bg').style.display    = 'block';
+};
+window.closeAbout = () => {
+  document.getElementById('about-modal').style.display = 'none';
+  document.getElementById('modal-bg').style.display    = 'none';
+};
+window.setTab = (btn) => {
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+};
+
+// ═══════════════════════════════════════════════════════
+//  RESIZE
+// ═══════════════════════════════════════════════════════
+window.addEventListener('resize', () => {
+  const w = innerWidth, h = innerHeight;
+  camera.aspect = w / h;
+  camera.updateProjectionMatrix();
+  renderer.setSize(w, h);
+  labelRenderer.setSize(w, h);
+});
+
+// ═══════════════════════════════════════════════════════
+//  RANGE DISPLAY
+// ═══════════════════════════════════════════════════════
+function updateRange() {
+  const d = camera.position.distanceTo(controls.target);
+  document.getElementById('range-val').textContent =
+    `${d.toFixed(2)} PC · ${(d*3.2616).toFixed(1)} LY`;
+}
+
+// ═══════════════════════════════════════════════════════
+//  RENDER LOOP
+// ═══════════════════════════════════════════════════════
+function animate() {
+  requestAnimationFrame(animate);
+  controls.update();
+  window._shipPulse && window._shipPulse();
+  updateRange();
+  renderer.render(scene, camera);
+  labelRenderer.render(scene, camera);
+}
+animate();
+
+</script>
 </body>
 </html>
